@@ -1,9 +1,12 @@
 """EntityResolver — canonical identity for facts (FR-14) + minimal normalization (裁决 3c).
 
-Normalization is deliberately a closed three-rule set covering only observed cracks:
-1. interpreter folding   (python|python3 -> python3)
-2. path relativization   (absolute workspace paths -> workspace-relative)
+Normalization is deliberately a closed rule set covering only observed cracks:
+1. interpreter folding      (python|python3 -> python3)
+2. path relativization      (absolute workspace paths -> workspace-relative)
 3. whitespace collapsing
+4. redirection stripping    (`... 2>&1`, `>out` — norm-v2; observed in P0b Stage 6:
+                             one rename trajectory keyed `refresh.py 2>&1` and broke
+                             family counting / promotion)
 Rules are versioned via NORMALIZER_VERSION; changing them requires a relearn replay
 (identity changes are re-keyed through the idempotent cascade).
 """
@@ -12,10 +15,28 @@ from __future__ import annotations
 
 import re
 
-NORMALIZER_VERSION = "norm-v1"
+NORMALIZER_VERSION = "norm-v2"
 
 _WS = re.compile(r"\s+")
 _PY = re.compile(r"\bpython(?:3(?:\.\d+)?)?\b")
+_REDIR_FUSED = re.compile(r"^\d*>>?")          # 2>&1, >out.txt, 2>/dev/null, >>log
+_REDIR_BARE = re.compile(r"^(\d*>>?|<)$")      # bare operator followed by a target token
+
+
+def _strip_redirections(tokens: list[str]) -> list[str]:
+    out: list[str] = []
+    skip_next = False
+    for t in tokens:
+        if skip_next:
+            skip_next = False
+            continue
+        if _REDIR_BARE.match(t):
+            skip_next = "&" not in t
+            continue
+        if _REDIR_FUSED.match(t):
+            continue
+        out.append(t)
+    return out
 
 
 def normalize_command(cmd: str, workspace_markers: tuple[str, ...] = ("src/", "tests/", "tools/", "build/")) -> str:
@@ -23,7 +44,7 @@ def normalize_command(cmd: str, workspace_markers: tuple[str, ...] = ("src/", "t
     cmd = _PY.sub("python3", cmd)
     # path relativization: strip any absolute prefix before a workspace marker
     parts = []
-    for token in cmd.split(" "):
+    for token in _strip_redirections(cmd.split(" ")):
         if "/" in token:
             for marker in workspace_markers:
                 idx = token.find(marker)

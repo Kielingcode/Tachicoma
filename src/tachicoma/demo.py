@@ -64,15 +64,18 @@ def discovery_phase(store: MemoryStore, arm: str, model: str, workspace_root: Pa
 
 
 def run_demo(out_dir: Path, workspace_root: Path, sonnet: str, frontier: str,
-             heldout_reps: int = 2) -> dict:
+             heldout_reps: int = 2, skip_discovery: bool = False) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     store_a = MemoryStore(out_dir / "arm_a.sqlite")   # 仅记录,不学习不注入
     store_b = MemoryStore(out_dir / "arm_b.sqlite")
     store_c = MemoryStore(out_dir / "arm_c.sqlite")
     records: list[dict] = []
 
-    discovery_phase(store_b, "arm_b", sonnet, workspace_root, records)
-    discovery_phase(store_c, "arm_c", frontier, workspace_root, records)
+    if not skip_discovery:
+        discovery_phase(store_b, "arm_b", sonnet, workspace_root, records)
+        discovery_phase(store_c, "arm_c", frontier, workspace_root, records)
+    else:
+        _log(f"skip discovery; active: b={_has_active(store_b)} c={_has_active(store_c)}")
 
     heldout_tasks = [v for v in HELDOUT_VARIANTS for _ in range(heldout_reps)]
     pairs = []
@@ -165,9 +168,12 @@ def main() -> None:
     ap.add_argument("--out-dir", default="spikes/p0b/demo")
     ap.add_argument("--workspace-root", default="/tmp/tachicoma_demo")
     ap.add_argument("--heldout-reps", type=int, default=2)
+    ap.add_argument("--skip-discovery", action="store_true",
+                    help="复用既有 store 的发现批(断点续跑)")
     args = ap.parse_args()
     run_demo(Path(args.out_dir), Path(args.workspace_root),
-             args.sonnet, args.frontier, heldout_reps=args.heldout_reps)
+             args.sonnet, args.frontier, heldout_reps=args.heldout_reps,
+             skip_discovery=args.skip_discovery)
 
 
 if __name__ == "__main__":
