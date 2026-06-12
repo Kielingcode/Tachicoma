@@ -1,0 +1,4 @@
+Rename the `tier` field of the Customer model in src/models.py to `level`
+(same string semantics). The whole test suite must pass:
+python3 -m pytest tests/ -q
+Do not delete or weaken existing tests.

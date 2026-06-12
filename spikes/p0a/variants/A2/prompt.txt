@@ -1,0 +1,4 @@
+Add a `currency` field (string, default "USD") to the Order model in src/models.py
+so order records carry the currency code. The whole test suite must pass:
+python3 -m pytest tests/ -q
+Do not delete or weaken existing tests.

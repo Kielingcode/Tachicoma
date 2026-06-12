@@ -1,0 +1,4 @@
+Add an `email` field (string, default "") to the Customer model in src/models.py
+so customer records carry an email address. The whole test suite must pass:
+python3 -m pytest tests/ -q
+Do not delete or weaken existing tests.
