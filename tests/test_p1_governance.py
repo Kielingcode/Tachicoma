@@ -126,6 +126,52 @@ def test_dispute_then_deprecate_window_is_pure_and_idempotent():
     assert before == after
 
 
+def test_observation_window_advances_under_suppression():
+    """3b 实测修正:disputed 后被压制 → 零新证据 → 纯证据窗口冻结。
+    同 repo 后续 learning-eligible episodes 的流逝 = "无回升"观察空槽;
+    窗口推进后 deprecated 可达。重放幂等。"""
+    s = _promoted_store()
+    mid = _mid(s)
+    # 2 个 G1 负向 episode;第二个的恢复翻转同时给旧 key 一条 adoption 正向
+    # (复刻 3a 实况:[neg, neg, pos] → 纯证据窗口永含正向)
+    s.ingest_episode(_meta("n0", "add-field", arm="memory_on", started="t3"),
+                     _g1_events(mid))
+    s.relearn("n0")
+    recovery = _g1_events(mid) + [
+        {"step_idx": 7, "event_type": "FILE_EDIT", "payload": {"path": "src/models.py"}},
+        {"step_idx": 8, "event_type": "TEST_RUN",
+         "payload": {"command": "python3 -m pytest tests/ -q", "passed": False}},
+        {"step_idx": 9, "event_type": "COMMAND_RUN",
+         "payload": {"command": "python3 tools/refresh.py"}},
+        {"step_idx": 10, "event_type": "TEST_RUN",
+         "payload": {"command": "python3 -m pytest tests/ -q", "passed": True}},
+    ]
+    s.ingest_episode(_meta("n1", "add-field", arm="memory_on", started="t4"), recovery)
+    s.relearn("n1")
+    assert s.con.execute("SELECT status FROM memory_items WHERE memory_id=?",
+                         (mid,)).fetchone()["status"] == "disputed"
+    # 3 个与旧 key 无关的 episodes 流逝(migrate 路线)→ 窗口推进 → deprecated
+    def mig_events():
+        ev = _organic_events()
+        ev[2] = {"step_idx": 3, "event_type": "COMMAND_RUN",
+                 "payload": {"command": "python3 tools/migrate.py"}}
+        return ev
+    for i, t in enumerate(("t5", "t6", "t7")):
+        s.ingest_episode(_meta(f"m{i}", "add-field", arm="memory_on", started=t),
+                         mig_events())
+        s.relearn(f"m{i}")
+    assert s.con.execute("SELECT status FROM memory_items WHERE memory_id=?",
+                         (mid,)).fetchone()["status"] == "deprecated"
+    # 重放零漂移(含 sweep 路径)
+    before = {r["memory_id"]: r["status"] for r in
+              s.con.execute("SELECT memory_id,status FROM memory_items")}
+    for eid in ("e1", "e2", "n0", "n1", "m0", "m1", "m2"):
+        s.relearn(eid)
+    after = {r["memory_id"]: r["status"] for r in
+             s.con.execute("SELECT memory_id,status FROM memory_items")}
+    assert before == after
+
+
 def test_deprecated_is_suppressed_from_retrieval():
     s = _promoted_store()
     mid = _mid(s)

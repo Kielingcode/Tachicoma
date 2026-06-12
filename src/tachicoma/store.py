@@ -271,6 +271,17 @@ class MemoryStore:
                 belief = recompute_belief(cur, mid)
                 self._apply_gate(cur, job_id, mid, belief)
 
+            # 6b. 观察期 sweep(P1):disputed memory 被压制后不再被注入、
+            # 不再获得新证据——本 episode 的流逝本身就是它的"无回升"观察,
+            # 必须触发其窗口重评,否则 deprecate 永不可达(3b 实测冻结)。
+            for r in cur.execute(
+                    "SELECT memory_id FROM memory_items WHERE status='disputed'"
+                    " AND json_extract(scope_json,'$.repo')="
+                    " (SELECT repo FROM episodes WHERE episode_id=?)", (episode_id,)):
+                if r["memory_id"] not in affected:
+                    belief = recompute_belief(cur, r["memory_id"])
+                    self._apply_gate(cur, job_id, r["memory_id"], belief)
+
             # 7. orphan cleanup: candidates with no evidence left
             orphans = [r["memory_id"] for r in cur.execute(
                 "SELECT m.memory_id FROM memory_items m LEFT JOIN evidence_links e"
@@ -329,13 +340,29 @@ class MemoryStore:
         old = row["status"]
         new = evaluate_gate(old, belief)
         if new == old:
-            # 降级评估(P1):dispute / deprecate —— 证据集的纯函数
+            # 降级评估(P1):dispute / deprecate —— 证据集 + 观察流的纯函数。
+            # tie-break:同 episode 内负向在前(保守:正向在窗口存活最久);
+            # 重放会换 claim rowid,故排序键只用不可变锚。
             evidence = cur.execute(
                 "SELECT e.polarity, ep.started_at FROM evidence_links e"
                 " JOIN claims c ON e.claim_id=c.claim_id"
                 " JOIN episodes ep ON c.episode_id=ep.episode_id"
-                " WHERE e.memory_id=? ORDER BY ep.started_at", (memory_id,)).fetchall()
-            new = evaluate_demotion(old, [dict(r) for r in evidence])
+                " WHERE e.memory_id=? ORDER BY ep.started_at, e.polarity",
+                (memory_id,)).fetchall()
+            # 观察期推进:最后一条证据之后、同 repo 的 learning-eligible episodes
+            # 数量 = "无回升"空槽(suppressed memory 无新证据,窗口仍须可推进)
+            episodes_since = 0
+            if evidence:
+                repo_row = cur.execute(
+                    "SELECT json_extract(scope_json,'$.repo') r FROM memory_items"
+                    " WHERE memory_id=?", (memory_id,)).fetchone()
+                excl = " AND ".join(
+                    f"arm NOT LIKE '{p}%'" for p in LEARNING_EXCLUDED_ARM_PREFIXES)
+                episodes_since = cur.execute(
+                    f"SELECT COUNT(*) c FROM episodes WHERE repo=? AND started_at>?"
+                    f" AND {excl}",
+                    (repo_row["r"], evidence[-1]["started_at"])).fetchone()["c"]
+            new = evaluate_demotion(old, [dict(r) for r in evidence], episodes_since)
         if new != old:
             cur.execute(
                 "UPDATE memory_items SET status=?, updated_at=? WHERE memory_id=?",
