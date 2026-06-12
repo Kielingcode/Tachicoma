@@ -12,6 +12,10 @@
 # Logs
 *.log
 
+# Python bytecode
+__pycache__/
+*.pyc
+
 # Docs
 /doc/
 

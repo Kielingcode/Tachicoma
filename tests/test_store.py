@@ -77,6 +77,29 @@ def test_cascade_demote_on_evidence_loss():
     assert s.con.execute("SELECT status FROM memory_items").fetchone()["status"] == "candidate"
 
 
+def test_proactive_exploration_supply_via_pristine_check():
+    """v4 主流轨迹:失败前主动探索 → first-try 通过(agent 全程没见过失败测试)。
+    harness pristine check(step-1 机检失败)提供翻转锚点,§6.3 提取规则不变。"""
+    s = MemoryStore()
+    events = [
+        {"step_idx": 1, "event_type": "TEST_RUN",
+         "payload": {"command": "python3 -m pytest tests/ -q", "passed": False,
+                     "source": "harness_pristine_check"}},
+        {"step_idx": 2, "event_type": "FILE_READ", "payload": {"path": "tools/refresh.py"}},
+        {"step_idx": 3, "event_type": "FILE_EDIT", "payload": {"path": "src/models.py"}},
+        {"step_idx": 4, "event_type": "COMMAND_RUN",
+         "payload": {"command": "python3 tools/refresh.py"}},
+        {"step_idx": 5, "event_type": "TEST_RUN",
+         "payload": {"command": "python3 -m pytest tests/ -q", "passed": True}},
+    ]
+    s.ingest_episode(_meta("e1", "add-field"), events)
+    s.relearn("e1")
+    claims = s.con.execute("SELECT canonical_key, polarity FROM claims").fetchall()
+    assert len(claims) == 1 and claims[0]["polarity"] == 1
+    assert claims[0]["canonical_key"] == \
+        "ProceduralDependency|src/models.py|python3 tools/refresh.py"
+
+
 def test_raw_events_never_touched_by_relearn():
     s = MemoryStore()
     s.ingest_episode(_meta("e1", "add-field"), _episode_events())
