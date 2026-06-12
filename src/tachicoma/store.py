@@ -203,10 +203,28 @@ class MemoryStore:
 
             # 2-4. re-extract, resolve, link
             ep, injected, meta = self.episode_view(episode_id)
-            source = "organic_task" if meta["arm"].startswith(("memory", "arm")) or True else meta["arm"]
             claims = extract(ep)
             pc = classify(ep)
-            # negative claims (P9): adopted injected memory + episode failed
+
+            # Evidence-class boundary(P0b 用户裁决):被注入且被采纳的 run 上,与注入
+            # memory 同 canonical key 的正向 claim 是 adoption-conditioned evidence ——
+            # 证明的是"这条 memory 被采纳后有用",不等价于 memory-off 独立发现。
+            # 两类分离防自我强化环:注入→照做成功→若计为独立证据→更强→更易注入。
+            #   independent (organic_task):      可用于 birth / promotion
+            #   adoption_outcome:                utility / confidence / demotion 抵抗;
+            #                                    不单独把 candidate 推成 active,
+            #                                    不作为 causal verification
+            injected_keys: set[str] = set()
+            for mid in injected:
+                row = cur.execute(
+                    "SELECT canonical_key FROM memory_items WHERE memory_id=?",
+                    (mid,)).fetchone()
+                if row:
+                    injected_keys.add(row["canonical_key"])
+
+            # negative claims (P9): adopted injected memory + episode failed.
+            # 负向天然是 injection-conditioned,标同源;P9 不对称性由 recompute 保证
+            # (负向无论来源都计入 dispute)。
             if injected and pc.intended_procedure_adopted and not ep.eventual_success:
                 for mid in injected:
                     row = cur.execute(
@@ -214,13 +232,18 @@ class MemoryStore:
                     if row:
                         self._insert_claim_and_link(
                             cur, episode_id, json.loads(row["trigger_json"]),
-                            json.loads(row["action_json"]), -1, 0, 0, source)
+                            json.loads(row["action_json"]), -1, 0, 0,
+                            "adoption_outcome")
                         affected.add(mid)
 
+            adopted = pc.intended_procedure_adopted
             for c in claims:
+                ckey = canonical_key("ProceduralDependency", c.trigger, c.action)
+                src = ("adoption_outcome"
+                       if (adopted and ckey in injected_keys) else "organic_task")
                 mid = self._insert_claim_and_link(
                     cur, episode_id, c.trigger, c.action, c.polarity,
-                    c.grounding_start_step, c.grounding_end_step, source)
+                    c.grounding_start_step, c.grounding_end_step, src)
                 affected.add(mid)
 
             # 5-6. recompute beliefs + gate evaluation (cascade)

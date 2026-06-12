@@ -100,6 +100,65 @@ def test_proactive_exploration_supply_via_pristine_check():
         "ProceduralDependency|src/models.py|python3 tools/refresh.py"
 
 
+def _memory_on_events(mid, *, success=True):
+    """memory-on adopted 轨迹:注入 → pristine 失败锚 → 编辑 → 采纳 refresh → 终测。"""
+    return [
+        {"step_idx": 0, "event_type": "MEMORY_INJECTED", "payload": {"memory_ids": [mid]}},
+        {"step_idx": 1, "event_type": "TEST_RUN",
+         "payload": {"command": "python3 -m pytest tests/ -q", "passed": False,
+                     "source": "harness_pristine_check"}},
+        {"step_idx": 2, "event_type": "FILE_EDIT", "payload": {"path": "src/models.py"}},
+        {"step_idx": 3, "event_type": "COMMAND_RUN",
+         "payload": {"command": "python3 tools/refresh.py"}},
+        {"step_idx": 4, "event_type": "TEST_RUN",
+         "payload": {"command": "python3 -m pytest tests/ -q", "passed": success}},
+    ]
+
+
+def test_adoption_evidence_is_classed_and_cannot_promote():
+    """Evidence-class 边界:adopted∧success 产生 adoption_outcome 证据,
+    可累计(utility)但不得单独把 candidate 推成 active —— 自我强化环被切断。"""
+    s = MemoryStore()
+    # 1 条 organic(families=1)→ candidate
+    s.ingest_episode(_meta("e1", "add-field"), _episode_events())
+    s.relearn("e1")
+    mid = s.con.execute("SELECT memory_id FROM memory_items").fetchone()["memory_id"]
+    assert s.con.execute("SELECT status FROM memory_items").fetchone()["status"] == "candidate"
+
+    # 注入该 memory 的 adopted+success run,来自【另一个】family(rename-field)
+    meta = _meta("e2", "rename-field")
+    meta["arm"] = "memory_on"
+    s.ingest_episode(meta, _memory_on_events(mid))
+    s.relearn("e2")
+
+    # 证据被正确分类
+    src = s.con.execute(
+        "SELECT evidence_source FROM evidence_links e JOIN claims c ON e.claim_id=c.claim_id"
+        " WHERE c.episode_id='e2'").fetchone()["evidence_source"]
+    assert src == "adoption_outcome"
+    # 不晋升:independent families 仍为 1(adoption 不计入 birth/promotion)
+    assert s.con.execute("SELECT status FROM memory_items").fetchone()["status"] == "candidate"
+    b = s.con.execute("SELECT support_count, distinct_task_family, per_context_json"
+                      " FROM belief_states").fetchone()
+    assert b["support_count"] == 1 and b["distinct_task_family"] == 1
+    assert '"adoption_support": 1' in b["per_context_json"]
+
+
+def test_adoption_failure_still_disputes():
+    """P9 不对称性保持:注入+采纳+失败 的负向证据(无论来源)计入 contra。"""
+    s = MemoryStore()
+    s.ingest_episode(_meta("e1", "add-field"), _episode_events())
+    s.relearn("e1")
+    mid = s.con.execute("SELECT memory_id FROM memory_items").fetchone()["memory_id"]
+    meta = _meta("e2", "rename-field")
+    meta["arm"] = "memory_on"
+    meta["eventual_success"] = 0
+    s.ingest_episode(meta, _memory_on_events(mid, success=False))
+    s.relearn("e2")
+    b = s.con.execute("SELECT contradiction_count FROM belief_states").fetchone()
+    assert b["contradiction_count"] >= 1
+
+
 def test_raw_events_never_touched_by_relearn():
     s = MemoryStore()
     s.ingest_episode(_meta("e1", "add-field"), _episode_events())
