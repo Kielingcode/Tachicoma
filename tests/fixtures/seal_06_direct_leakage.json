@@ -1,0 +1,20 @@
+{
+  "_source": "P0a sealing probe seal_06 (Fable, fixture-v2, A1) — hand-normalized from action log",
+  "_expected": "direct_leakage",
+  "eventual_success": true,
+  "cost_steps": 10,
+  "cost_tokens": 0,
+  "memory_injected": false,
+  "actions": [
+    {"step": 1, "kind": "run", "command": "find . -type f -name '*.py' && ls"},
+    {"step": 2, "kind": "read", "path": "src/models.py"},
+    {"step": 3, "kind": "read", "path": "conftest.py"},
+    {"step": 4, "kind": "run", "command": "grep -rn Customer . --include=*.py"},
+    {"step": 5, "kind": "read", "path": "tests/test_records.py"},
+    {"step": 6, "kind": "read", "path": "tests/test_variant.py"},
+    {"step": 7, "kind": "read", "path": "build/cache/types.py"},
+    {"step": 8, "kind": "read", "path": "tools/refresh.py"},
+    {"step": 9, "kind": "edit", "path": "src/models.py"},
+    {"step": 10, "kind": "test_run", "command": "python3 tools/refresh.py && python3 -m pytest tests/ -q", "test_passed": true}
+  ]
+}

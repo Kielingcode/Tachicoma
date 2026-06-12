@@ -1,0 +1,25 @@
+{
+  "_source": "P0a sealing probe seal_13 (Fable, fixture-v3, A2) — manual-sync bypass with self-computed crc32",
+  "_expected": "costly_bypass (never discovered the tool)",
+  "eventual_success": true,
+  "cost_steps": 15,
+  "cost_tokens": 0,
+  "memory_injected": false,
+  "actions": [
+    {"step": 1, "kind": "run", "command": "find . -type f -name '*.py' | head -50 && ls"},
+    {"step": 2, "kind": "read", "path": "src/models.py"},
+    {"step": 3, "kind": "test_run", "command": "python3 -m pytest tests/ -q", "test_passed": false},
+    {"step": 4, "kind": "read", "path": "tests/test_variant.py"},
+    {"step": 5, "kind": "read", "path": "build/cache/types.py"},
+    {"step": 6, "kind": "run", "command": "grep -rn 'Order(' . && grep amount_cents"},
+    {"step": 7, "kind": "read", "path": "conftest.py"},
+    {"step": 8, "kind": "read", "path": "tests/test_records.py"},
+    {"step": 9, "kind": "edit", "path": "src/models.py"},
+    {"step": 10, "kind": "test_run", "command": "python3 -m pytest tests/ -q", "test_passed": false},
+    {"step": 11, "kind": "run", "command": "python3 -c \"import zlib; print(zlib.crc32(b'order_id,amount_cents,currency'))\""},
+    {"step": 12, "kind": "edit", "path": "build/cache/types.py"},
+    {"step": 13, "kind": "edit", "path": "build/cache/types.py"},
+    {"step": 14, "kind": "edit", "path": "build/cache/types.py"},
+    {"step": 15, "kind": "test_run", "command": "python3 -m pytest tests/ -q", "test_passed": true}
+  ]
+}
