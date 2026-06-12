@@ -13,16 +13,24 @@ from pathlib import Path
 _STATUS_RANK = {"active_verified": 0, "active_correlational": 1}
 
 
-def retrieve(store, repo: str, workspace: Path, prompt: str, k: int = 3) -> list[dict]:
-    """active* + repo scope + 确定性 trigger 过滤 → top-k(状态层级 > 证据量)。"""
-    out = []
+def retrieve(store, repo: str, workspace: Path, prompt: str, k: int = 3,
+             ) -> tuple[list[dict], list[dict]]:
+    """active* + repo scope + trigger 过滤 + **rival top-1(FR-26)** → (top-k, suppressed)。
+
+    检索状态语义(P1 终审定夺,suppression):disputed/deprecated 的 status 已不带
+    'active' 前缀,被 store.active_items 自然排除——disputed 不渲染为行动指令,
+    deprecated 永不参与;可检索集内 active_verified > active_correlational。
+    每个 rival_key 竞争集只保留 top-1;被压制者随返回值交给 runner 记入
+    MEMORY_INJECTED payload(NFR-8 no silent caps)。
+    """
+    candidates = []
     for row in store.active_items(repo):
         trigger = json.loads(row["trigger_json"])
         path = trigger.get("after_edit", "")
         if not path:
             continue
         if _path_in_workspace(path, workspace) or path in prompt:
-            out.append({
+            candidates.append({
                 "memory_id": row["memory_id"],
                 "memory_type": row["memory_type"],
                 "status": row["status"],
@@ -33,9 +41,18 @@ def retrieve(store, repo: str, workspace: Path, prompt: str, k: int = 3) -> list
                 "support_count": row["support_count"],
                 "contradiction_count": row["contradiction_count"],
                 "distinct_task_family": row["distinct_task_family"],
+                "rival_key": row["rival_key"],
             })
-    out.sort(key=lambda m: (_STATUS_RANK.get(m["status"], 9), -m["support_count"]))
-    return out[:k]
+    candidates.sort(key=lambda m: (_STATUS_RANK.get(m["status"], 9), -m["support_count"]))
+    winners, suppressed, seen_rivals = [], [], set()
+    for m in candidates:
+        if m["rival_key"] in seen_rivals:
+            suppressed.append({"memory_id": m["memory_id"], "rival_key": m["rival_key"],
+                               "status": m["status"]})
+            continue
+        seen_rivals.add(m["rival_key"])
+        winners.append(m)
+    return winners[:k], suppressed
 
 
 def _path_in_workspace(rel_path: str, workspace: Path) -> bool:

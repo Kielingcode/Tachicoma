@@ -54,11 +54,42 @@ def recompute_belief(cur, memory_id: str) -> dict:
 
 
 def evaluate_gate(current_status: str, belief: dict) -> str:
-    """Counting rule. Cascade-aware: items that no longer satisfy the gate demote."""
+    """Counting rule(晋升)+ 证据丢失级联(降回 candidate)。
+
+    职责边界(P1 修正):矛盾增长(F 上升)的处理权属于 evaluate_demotion
+    (active → disputed,FR-22/S7);gate 的级联降级只管【证据丢失】
+    (relearn 替换后 S/families 跌破)——否则负向证据会把 active 降回 candidate,
+    dispute 机制永远轮不到。
+    """
     s, f, fam = belief["support"], belief["contra"], belief["families"]
-    qualifies = fam >= 2 and s >= 2 and s >= 3 * f
-    if current_status == "candidate" and qualifies:
+    if current_status == "candidate" and fam >= 2 and s >= 2 and s >= 3 * f:
         return "active_correlational"
-    if current_status == "active_correlational" and not qualifies:
-        return "candidate"   # demote on evidence loss (relearn cascade, FR-18)
+    if current_status == "active_correlational" and (s < 2 or fam < 2):
+        return "candidate"   # 证据丢失(FR-18 级联);矛盾走 demotion
+    return current_status
+
+
+# 降级参数(P1;数值闸门可满足性:dispute 门与 plan 3a 通过线一致)
+DISPUTE_NEGATIVES = 2          # 程序级负向 ≥2 → disputed(active_* 均适用,verified 非免死金牌)
+DEPRECATE_WINDOW_M = 3         # 观察期:最近 M 条证据(按 episodes.started_at)无正向 → deprecated
+
+
+def evaluate_demotion(current_status: str, evidence_chrono: list[dict]) -> str:
+    """Dispute / deprecate —— **证据集的纯函数**(S4 幂等保命约束)。
+
+    输入为该 memory 全部 evidence(dict 含 polarity, started_at),
+    **已按 episodes.started_at 升序**(不可变锚;禁用 claims.created_at——重放会换)。
+    不依赖墙钟、不依赖 relearn 执行顺序;同一证据集 → 同一状态,重放幂等。
+    """
+    negatives = sum(1 for e in evidence_chrono if e["polarity"] < 0)
+
+    if current_status.startswith("active") and negatives >= DISPUTE_NEGATIVES:
+        current_status = "disputed"
+
+    if current_status == "disputed":
+        recent = evidence_chrono[-DEPRECATE_WINDOW_M:]
+        # 观察期判定:dispute 成立后,最近 M 条证据无任何正向 → 无回升 → deprecated
+        if len(recent) >= DEPRECATE_WINDOW_M and not any(e["polarity"] > 0 for e in recent):
+            return "deprecated"
+
     return current_status

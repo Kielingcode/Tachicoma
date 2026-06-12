@@ -41,6 +41,54 @@ class Episode:
     memory_injected: bool = False
     trigger_path: str = "src/models.py"
     tool_path: str = "tools/refresh.py"
+    derived_paths: tuple = ("build/cache",)    # P1 Stage 3.2 参数化(原硬编码)
+    golden_paths: tuple = ("tests/golden",)
+
+
+@dataclass
+class AdoptionRecord:
+    """G1(P1):per-injected-memory 的程序级采纳判定。
+
+    post_adoption_first_test_passed 刻意避开 "fixed" 命名——与 eventual recovery
+    歧义隔离;None = 采纳后无测试运行(信号不足,不触发负向)。
+    pre_adoption_last_test_passed 用于 wasteful 判定(采纳前测试已通过 = 冗余采纳)。
+    """
+    adopted: bool
+    adoption_step: int | None
+    post_adoption_first_test_passed: bool | None
+    pre_adoption_last_test_passed: bool | None
+
+
+def adoption_record(ep: Episode, trigger_path: str, action_cmd: str) -> AdoptionRecord:
+    """程序级采纳判定(零 LLM):编辑匹配 trigger 的文件后,是否运行了该 memory 的
+    action 命令;采纳步前后最近的测试结果各是什么。"""
+    from tachicoma.resolver import normalize_command  # 局部导入避免环
+
+    if not action_cmd:
+        return AdoptionRecord(False, None, None, None)
+    norm_action = normalize_command(action_cmd)
+    key_edit = _first(ep.actions, lambda a: a.kind == "edit" and _same_path(a.path, trigger_path))
+    if key_edit is None:
+        return AdoptionRecord(False, None, None, None)
+    adoption_step = None
+    for a in ep.actions:
+        if a.step > key_edit and a.command and norm_action in normalize_command(a.command):
+            adoption_step = a.step
+            break
+    if adoption_step is None:
+        return AdoptionRecord(False, None, None, None)
+    post = next((a for a in ep.actions
+                 if a.kind == "test_run" and a.step > adoption_step), None)
+    pre = None
+    for a in ep.actions:
+        if a.kind == "test_run" and a.step < adoption_step:
+            pre = a
+    return AdoptionRecord(
+        adopted=True,
+        adoption_step=adoption_step,
+        post_adoption_first_test_passed=(post.test_passed if post else None),
+        pre_adoption_last_test_passed=(pre.test_passed if pre else None),
+    )
 
 
 @dataclass
@@ -92,10 +140,12 @@ def classify(ep: Episode) -> PathClass:
                 tool_known_before = True
 
     edited_derived = any(
-        a.kind == "edit" and a.path and _under(a.path, "build/cache") for a in ep.actions
+        a.kind == "edit" and a.path and any(_under(a.path, p) for p in ep.derived_paths)
+        for a in ep.actions
     )
     edited_golden = any(
-        a.kind == "edit" and a.path and _under(a.path, "tests/golden") for a in ep.actions
+        a.kind == "edit" and a.path and any(_under(a.path, p) for p in ep.golden_paths)
+        for a in ep.actions
     )
 
     used = refresh_run is not None

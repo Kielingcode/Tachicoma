@@ -17,9 +17,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from tachicoma.extractor import EXTRACTOR_VERSION, extract
-from tachicoma.governance import evaluate_gate, recompute_belief
-from tachicoma.path_classifier import Action, Episode, classify
+from tachicoma.governance import evaluate_demotion, evaluate_gate, recompute_belief
+from tachicoma.path_classifier import Action, Episode, adoption_record, classify
 from tachicoma.resolver import canonical_key, rival_key
+from tachicoma.worlds import world_for
+
+# learning-excluded arms(终审修订:store 级强制,runner 纪律只是第一道):
+# canary/oracle/noise/diagnostic/frontier 类 episodes 照常入库(审计),
+# 但 relearn 排除其 claim 提取与信念重算。
+LEARNING_EXCLUDED_ARM_PREFIXES = ("canary", "noise", "oracle", "diagnostic", "frontier")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS raw_events (
@@ -170,12 +176,17 @@ class MemoryStore:
                                       test_passed=p.get("passed")))
             elif et == "MEMORY_INJECTED":
                 injected.extend(p.get("memory_ids", []))
+        w = world_for(meta["generator_template"])   # Stage 3.2:路径按世界参数化
         ep = Episode(
             actions=actions,
             eventual_success=bool(meta["eventual_success"]),
             cost_steps=meta["cost_steps"] or 0,
             cost_tokens=meta["cost_tokens"] or 0,
             memory_injected=bool(injected),
+            trigger_path=w.trigger_path,
+            tool_path=w.tool_path,
+            derived_paths=w.derived_paths,
+            golden_paths=w.golden_paths,
         )
         return ep, injected, meta
 
@@ -186,6 +197,17 @@ class MemoryStore:
     def relearn(self, episode_id: str) -> dict:
         job_id = f"job_{uuid.uuid4().hex[:8]}"
         cur = self.con.cursor()
+
+        # learning-excluded(store 级强制):审计入库,但不参与提取与信念
+        arm_row = self.con.execute(
+            "SELECT arm FROM episodes WHERE episode_id=?", (episode_id,)).fetchone()
+        if arm_row and str(arm_row["arm"]).startswith(LEARNING_EXCLUDED_ARM_PREFIXES):
+            self._audit(cur, job_id, "learning_excluded_skip", episode_id,
+                        {"arm": arm_row["arm"]})
+            self.con.commit()
+            return {"job_id": job_id, "affected": [], "orphans": [],
+                    "learning_excluded": True}
+
         try:
             cur.execute("BEGIN")
             # 1. per-task replace — derived rows ONLY (raw_events/episodes untouched)
@@ -214,33 +236,31 @@ class MemoryStore:
             #   adoption_outcome:                utility / confidence / demotion 抵抗;
             #                                    不单独把 candidate 推成 active,
             #                                    不作为 causal verification
-            injected_keys: set[str] = set()
+            # G1(P1):per-injected-memory 程序级采纳判定。
+            # 负向触发 = adopted ∧ post_adoption_first_test_passed is False
+            # ——"采纳后局部未修复";episode 最终恢复不再吞掉 stale harm 证据。
+            adopted_keys: set[str] = set()
             for mid in injected:
                 row = cur.execute(
-                    "SELECT canonical_key FROM memory_items WHERE memory_id=?",
-                    (mid,)).fetchone()
-                if row:
-                    injected_keys.add(row["canonical_key"])
-
-            # negative claims (P9): adopted injected memory + episode failed.
-            # 负向天然是 injection-conditioned,标同源;P9 不对称性由 recompute 保证
-            # (负向无论来源都计入 dispute)。
-            if injected and pc.intended_procedure_adopted and not ep.eventual_success:
-                for mid in injected:
-                    row = cur.execute(
-                        "SELECT * FROM memory_items WHERE memory_id=?", (mid,)).fetchone()
-                    if row:
+                    "SELECT * FROM memory_items WHERE memory_id=?", (mid,)).fetchone()
+                if not row:
+                    continue
+                rec = adoption_record(
+                    ep, json.loads(row["trigger_json"]).get("after_edit", ep.trigger_path),
+                    json.loads(row["action_json"]).get("must_run", ""))
+                if rec.adopted:
+                    adopted_keys.add(row["canonical_key"])
+                    if rec.post_adoption_first_test_passed is False:
                         self._insert_claim_and_link(
                             cur, episode_id, json.loads(row["trigger_json"]),
-                            json.loads(row["action_json"]), -1, 0, 0,
+                            json.loads(row["action_json"]), -1,
+                            rec.adoption_step or 0, rec.adoption_step or 0,
                             "adoption_outcome")
                         affected.add(mid)
 
-            adopted = pc.intended_procedure_adopted
             for c in claims:
                 ckey = canonical_key("ProceduralDependency", c.trigger, c.action)
-                src = ("adoption_outcome"
-                       if (adopted and ckey in injected_keys) else "organic_task")
+                src = "adoption_outcome" if ckey in adopted_keys else "organic_task"
                 mid = self._insert_claim_and_link(
                     cur, episode_id, c.trigger, c.action, c.polarity,
                     c.grounding_start_step, c.grounding_end_step, src)
@@ -308,6 +328,14 @@ class MemoryStore:
             return
         old = row["status"]
         new = evaluate_gate(old, belief)
+        if new == old:
+            # 降级评估(P1):dispute / deprecate —— 证据集的纯函数
+            evidence = cur.execute(
+                "SELECT e.polarity, ep.started_at FROM evidence_links e"
+                " JOIN claims c ON e.claim_id=c.claim_id"
+                " JOIN episodes ep ON c.episode_id=ep.episode_id"
+                " WHERE e.memory_id=? ORDER BY ep.started_at", (memory_id,)).fetchall()
+            new = evaluate_demotion(old, [dict(r) for r in evidence])
         if new != old:
             cur.execute(
                 "UPDATE memory_items SET status=?, updated_at=? WHERE memory_id=?",
