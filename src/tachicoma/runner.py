@@ -83,15 +83,26 @@ def run_episode(store, variant_id: str, *, arm: str, model: str, memory_on: bool
     res = adapter.run(bundle.prompt, ws, model, injection_block=block, start_step=2)
     eventual = success_check(ws)
 
+    wp = world_for(bundle.generator_template)
+    oracle_passed = None
+    if wp.oracle_script is not None:                 # FR-9b:hidden oracle(harness 侧)
+        r = subprocess.run(["python3", str(wp.oracle_script), str(ws)],
+                           capture_output=True, text=True, timeout=120)
+        oracle_passed = r.returncode == 0
+
     events = [{"step_idx": 1, "event_type": "TEST_RUN",
                "payload": {"command": bundle.test_command, "passed": False,
                            "source": "harness_pristine_check"}}] + list(res.events)
+    if oracle_passed is not None:
+        last = max((e["step_idx"] for e in events), default=1)
+        events.append({"step_idx": last + 1, "event_type": "DELAYED_CHECK_RESULT",
+                       "payload": {"passed": oracle_passed,
+                                   "source": "harness_hidden_oracle"}})
     if injected:
         events.insert(0, {"step_idx": 0, "event_type": "MEMORY_INJECTED",
                           "payload": {"memory_ids": [i["memory_id"] for i in injected],
                                       "rival_suppressed": suppressed}})  # NFR-8 审计
 
-    wp = world_for(bundle.generator_template)   # P1 Stage 3.2:路径参数随世界走
     ep = Episode(actions=events_to_actions(events), eventual_success=eventual,
                  cost_steps=res.cost_steps, cost_tokens=res.cost_tokens,
                  memory_injected=bool(injected),

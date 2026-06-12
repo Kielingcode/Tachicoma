@@ -22,6 +22,7 @@ class WorldParams:
     golden_paths: tuple = ("tests/golden",)
     fact_oracle: dict = field(default_factory=lambda: {
         "after_edit": "src/models.py", "must_run": "python3 tools/refresh.py"})
+    oracle_script: Path | None = None        # FR-9b:harness 侧 hidden oracle(GenB)
 
 
 WORLDS: dict[str, WorldParams] = {
@@ -46,6 +47,15 @@ WORLDS: dict[str, WorldParams] = {
         template_dir=_SPIKES / "p1" / "worlds" / "rot_v2b",
         tool_path="tools/migrate.py",
         fact_oracle={"after_edit": "src/models.py", "must_run": "python3 tools/migrate.py"}),
+    # Generator B(P2):rot_v2b 演化版;wire 2.1 字母序隐藏规则;
+    # 本地套件可绕(shape/roundtrip),hidden oracle 在 harness 侧
+    "genb_v1": WorldParams(
+        template_id="genb_v1",
+        template_dir=_SPIKES / "p2" / "worlds" / "genb_v1",
+        tool_path="tools/migrate.py",
+        fact_oracle={"after_edit": "src/models.py", "must_run": "python3 tools/migrate.py",
+                     "vp_must_run": "python3 tools/check_contract.py"},
+        oracle_script=_SPIKES / "p2" / "worlds" / "genb_oracle.py"),
 }
 
 DEFAULT_WORLD = WORLDS["hidden_coupling_v4"]

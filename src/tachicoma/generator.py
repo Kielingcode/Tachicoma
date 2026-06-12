@@ -161,6 +161,18 @@ _SPECS = [
     _add_field_variant("R2", "Invoice", "po_number", "string", '""', '"PO-9"', held_out=True),
     _rename_variant("R3", "Customer", "name", "full_name", held_out=True),
     _add_field_variant("R4", "Shipment", "weight_kg", "int", "0", "3", held_out=True),
+    # — GenB billing 风味(genb_v1 用,P2 Stage B1/C;参数域与既有全部不相交)
+    _add_field_variant("GB1", "Invoice", "tax_code", "string", '""', '"VAT20"', held_out=True),
+    _add_field_variant("GB2", "Order", "fee_cents", "int", "0", "75", held_out=True),
+    _add_field_variant("GB3", "Customer", "billing_email", "string", '""', '"b@x.io"', held_out=True),
+    _add_field_variant("GB4", "Shipment", "customs_ref", "string", '""', '"C-77"', held_out=True),
+    _rename_variant("GB5", "Invoice", "total_cents", "amount_due_cents", held_out=True),
+    _rename_variant("GB6", "Customer", "tier", "billing_tier", held_out=True),
+    # — GenB held-out(Stage C 验证批)
+    _add_field_variant("GH1", "Invoice", "currency_code", "string", '"USD"', '"EUR"', held_out=True),
+    _add_field_variant("GH2", "Order", "region_code", "string", '"US"', '"EU"', held_out=True),
+    _add_field_variant("GH3", "Shipment", "weight_g", "int", "0", "1200", held_out=True),
+    _rename_variant("GH4", "Shipment", "carrier", "freight_carrier", held_out=True),
     # — wasteful(shim_v1 用,Stage 3c,learn=True)
     _add_field_variant("W1", "Order", "channel", "string", '"web"', '"app"', held_out=True),
     _add_field_variant("W2", "Customer", "locale", "string", '"en"', '"fr"', held_out=True),
