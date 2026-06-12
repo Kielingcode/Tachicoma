@@ -17,7 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from tachicoma.extractor import EXTRACTOR_VERSION, extract
-from tachicoma.governance import evaluate_demotion, evaluate_gate, recompute_belief
+from tachicoma.governance import (evaluate_demotion, evaluate_gate, evaluate_inert,
+                                  recompute_belief)
 from tachicoma.path_classifier import Action, Episode, adoption_record, classify
 from tachicoma.resolver import canonical_key, rival_key
 from tachicoma.worlds import world_for
@@ -274,13 +275,25 @@ class MemoryStore:
             # 6b. 观察期 sweep(P1):disputed memory 被压制后不再被注入、
             # 不再获得新证据——本 episode 的流逝本身就是它的"无回升"观察,
             # 必须触发其窗口重评,否则 deprecate 永不可达(3b 实测冻结)。
-            for r in cur.execute(
-                    "SELECT memory_id FROM memory_items WHERE status='disputed'"
-                    " AND json_extract(scope_json,'$.repo')="
-                    " (SELECT repo FROM episodes WHERE episode_id=?)", (episode_id,)):
+            disputed_rows = cur.execute(
+                "SELECT memory_id FROM memory_items WHERE status='disputed'"
+                " AND json_extract(scope_json,'$.repo')="
+                " (SELECT repo FROM episodes WHERE episode_id=?)",
+                (episode_id,)).fetchall()    # fetchall:循环体复用 cursor
+            for r in disputed_rows:
                 if r["memory_id"] not in affected:
                     belief = recompute_belief(cur, r["memory_id"])
                     self._apply_gate(cur, job_id, r["memory_id"], belief)
+
+            # 6c. 惰性剪枝 sweep(FR-25/S13):active memory 最近 K 次注入连续
+            # 未被采纳 → deprecated(直接弧;adoption 即抵抗信号)。
+            active_rows = cur.execute(
+                "SELECT memory_id FROM memory_items WHERE status LIKE 'active%'"
+                " AND json_extract(scope_json,'$.repo')="
+                " (SELECT repo FROM episodes WHERE episode_id=?)",
+                (episode_id,)).fetchall()
+            for r in active_rows:
+                self._apply_inert(cur, job_id, r["memory_id"])
 
             # 7. orphan cleanup: candidates with no evidence left
             orphans = [r["memory_id"] for r in cur.execute(
@@ -374,6 +387,41 @@ class MemoryStore:
                  f"gate: S={belief['support']} F={belief['contra']}"
                  f" families={belief['families']}",
                  json.dumps(belief), job_id, _now()))
+
+    def _apply_inert(self, cur, job_id, memory_id) -> None:
+        """FR-25 惰性剪枝:重算该 memory 的注入-采纳序列(raw_events 纯函数),
+        最近 K 次注入连续未采纳 → deprecated。"""
+        row = cur.execute(
+            "SELECT status, trigger_json, action_json FROM memory_items"
+            " WHERE memory_id=?", (memory_id,)).fetchone()
+        if not row or not row["status"].startswith("active"):
+            return
+        trigger = json.loads(row["trigger_json"]).get("after_edit", "")
+        action = json.loads(row["action_json"]).get("must_run", "")
+        adopted_seq: list[bool] = []
+        # fetchall 物化:迭代中还会用同一 cursor 查询(cursor 复用会重置结果集)
+        inj_rows = cur.execute(
+            "SELECT r.payload_json, r.episode_id, ep.arm FROM raw_events r"
+            " JOIN episodes ep ON r.episode_id=ep.episode_id"
+            " WHERE r.event_type='MEMORY_INJECTED' ORDER BY ep.started_at").fetchall()
+        for ev in inj_rows:
+            if memory_id not in json.loads(ev["payload_json"]).get("memory_ids", []):
+                continue
+            if str(ev["arm"]).startswith(LEARNING_EXCLUDED_ARM_PREFIXES):
+                continue
+            ep, _, _ = self.episode_view(ev["episode_id"])
+            adopted_seq.append(adoption_record(ep, trigger, action).adopted)
+        new = evaluate_inert(row["status"], adopted_seq)
+        if new != row["status"]:
+            cur.execute(
+                "UPDATE memory_items SET status=?, updated_at=?, deprecated_at=?"
+                " WHERE memory_id=?", (new, _now(), _now(), memory_id))
+            cur.execute(
+                "INSERT INTO status_history (memory_id, old_status, new_status, reason,"
+                " evidence_snapshot_json, job_id, created_at) VALUES (?,?,?,?,?,?,?)",
+                (memory_id, row["status"], new,
+                 f"inert: last {len(adopted_seq[-3:])} injections un-adopted (FR-25)",
+                 json.dumps({"adopted_seq": adopted_seq}), job_id, _now()))
 
     def _audit(self, cur, job_id, action, target, detail) -> None:
         cur.execute(

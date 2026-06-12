@@ -41,7 +41,7 @@ def run_u(store, adapter, reflector, ref: str, arm: str) -> dict:
     ws = WS / episode_id
     bundle = materialize(ref, ws)
     block = reflector.injection_block()
-    n_lessons = block.count("\n- ") + (1 if block else 0)
+    n_lessons = block.count("\n- ")     # head 行不计;每 lesson 一个 "\n- "
 
     if success_check(ws):
         raise RuntimeError(f"variant {ref}: pristine fixture unexpectedly passes")

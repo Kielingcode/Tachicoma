@@ -98,6 +98,25 @@ def evaluate_gate(current_status: str, belief: dict) -> str:
 # 降级参数(P1;数值闸门可满足性:dispute 门与 plan 3a 通过线一致)
 DISPUTE_NEGATIVES = 2          # 程序级负向 ≥2 → disputed(active_* 均适用,verified 非免死金牌)
 DEPRECATE_WINDOW_M = 3         # 观察期:最近 M 条证据(按 episodes.started_at)无正向 → deprecated
+INERT_INJECTIONS_K = 3         # 惰性剪枝:最近 K 次注入连续未被采纳 → deprecated(FR-25/S13)
+
+
+def evaluate_inert(current_status: str, injection_adopted_seq: list[bool]) -> str:
+    """FR-25 惰性剪枝(纯函数,不依赖 canary):active memory 最近 K 次注入
+    **连续未被采纳** → deprecated(inert,直接弧 active → deprecated)。
+
+    `injection_adopted_seq` = 该 memory 全部注入事件的采纳布尔序列
+    (按 episodes.started_at 升序;learning-excluded arms 不计)。
+    adoption_support 是抵抗信号:被采纳即重置连续计数——本规则只剪
+    "反复递到 agent 面前都不被用"的死重,不剪正在被使用的 memory。
+    "采纳但无 outcome 差异"分支依赖配对测量,P1 不实现(P2 决定)。
+    """
+    if not current_status.startswith("active"):
+        return current_status
+    recent = injection_adopted_seq[-INERT_INJECTIONS_K:]
+    if len(recent) >= INERT_INJECTIONS_K and not any(recent):
+        return "deprecated"
+    return current_status
 
 
 def evaluate_demotion(current_status: str, evidence_chrono: list[dict],

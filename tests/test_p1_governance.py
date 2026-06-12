@@ -209,6 +209,81 @@ def test_rival_top1_with_suppression_logged():
     assert winners[0]["memory_id"] != suppressed[0]["memory_id"]
 
 
+def test_inert_pruning_after_k_unadopted_injections():
+    """FR-25/S13:最近 K=3 次注入连续未采纳 → deprecated(直接弧);
+    被采纳即重置(adoption_support 抵抗);重放幂等。"""
+    s = _promoted_store()
+    mid = _mid(s)
+
+    def unadopted_events():
+        # 注入但 agent 走自己的路(无 refresh 运行)→ adopted=False
+        return [
+            {"step_idx": 0, "event_type": "MEMORY_INJECTED",
+             "payload": {"memory_ids": [mid]}},
+            {"step_idx": 1, "event_type": "TEST_RUN",
+             "payload": {"command": "python3 -m pytest tests/ -q", "passed": False,
+                         "source": "harness_pristine_check"}},
+            {"step_idx": 2, "event_type": "FILE_EDIT", "payload": {"path": "src/models.py"}},
+            {"step_idx": 3, "event_type": "TEST_RUN",
+             "payload": {"command": "python3 -m pytest tests/ -q", "passed": True}},
+        ]
+
+    for i, t in enumerate(("t3", "t4")):
+        s.ingest_episode(_meta(f"u{i}", "add-field", arm="memory_on", started=t),
+                         unadopted_events())
+        s.relearn(f"u{i}")
+    # 2 次未采纳:未到 K=3,仍 active
+    assert s.con.execute("SELECT status FROM memory_items WHERE memory_id=?",
+                         (mid,)).fetchone()["status"] == "active_correlational"
+    s.ingest_episode(_meta("u2", "add-field", arm="memory_on", started="t5"),
+                     unadopted_events())
+    s.relearn("u2")
+    assert s.con.execute("SELECT status FROM memory_items WHERE memory_id=?",
+                         (mid,)).fetchone()["status"] == "deprecated"
+    hist = s.con.execute(
+        "SELECT reason FROM status_history WHERE memory_id=? ORDER BY id DESC LIMIT 1",
+        (mid,)).fetchone()["reason"]
+    assert "inert" in hist
+    # 重放零漂移
+    before = {r["memory_id"]: r["status"] for r in
+              s.con.execute("SELECT memory_id,status FROM memory_items")}
+    for eid in ("e1", "e2", "u0", "u1", "u2"):
+        s.relearn(eid)
+    after = {r["memory_id"]: r["status"] for r in
+             s.con.execute("SELECT memory_id,status FROM memory_items")}
+    assert before == after
+
+
+def test_adoption_resets_inert_streak():
+    """采纳 = 抵抗信号:2 未采纳 + 1 采纳 + 2 未采纳 → 最近 3 次含采纳,不剪。"""
+    s = _promoted_store()
+    mid = _mid(s)
+
+    def injected(events_passed_via_refresh):
+        ev = [{"step_idx": 0, "event_type": "MEMORY_INJECTED",
+               "payload": {"memory_ids": [mid]}},
+              {"step_idx": 1, "event_type": "TEST_RUN",
+               "payload": {"command": "python3 -m pytest tests/ -q", "passed": False,
+                           "source": "harness_pristine_check"}},
+              {"step_idx": 2, "event_type": "FILE_EDIT",
+               "payload": {"path": "src/models.py"}}]
+        if events_passed_via_refresh:
+            ev.append({"step_idx": 3, "event_type": "COMMAND_RUN",
+                       "payload": {"command": "python3 tools/refresh.py"}})
+        ev.append({"step_idx": 4, "event_type": "TEST_RUN",
+                   "payload": {"command": "python3 -m pytest tests/ -q", "passed": True}})
+        return ev
+
+    for i, (t, adopt) in enumerate(zip(("t3", "t4", "t5", "t6", "t7"),
+                                       (False, False, True, False, False))):
+        s.ingest_episode(_meta(f"u{i}", "add-field", arm="memory_on", started=t),
+                         injected(adopt))
+        s.relearn(f"u{i}")
+    status = s.con.execute("SELECT status FROM memory_items WHERE memory_id=?",
+                           (mid,)).fetchone()["status"]
+    assert status.startswith("active")   # 最近 3 = [True, False, False] → 不剪
+
+
 # ------------------------------------------ CanaryEvaluator(S4 延伸)----
 
 def _canary_pair(s, pid, *, with_steps, without_steps, mid, started):
