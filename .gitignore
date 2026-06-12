@@ -14,3 +14,8 @@
 
 # Docs
 /doc/
+
+# Experiments (P0a spikes, generated fixtures, run artifacts) — keep out of git for now
+/spikes/
+/fixtures/
+/runs/
