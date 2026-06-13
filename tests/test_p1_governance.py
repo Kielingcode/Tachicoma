@@ -203,7 +203,7 @@ def test_rival_top1_with_suppression_logged():
     ws = Path(tempfile.mkdtemp())
     (ws / "src").mkdir()
     (ws / "src" / "models.py").write_text("# f", encoding="utf-8")
-    winners, suppressed = retrieve(s, "orderkit", ws, "Add a field", k=5)
+    winners, suppressed, _diag = retrieve(s, "orderkit", ws, "Add a field", k=5)
     assert len(winners) == 1            # 同 rival_key 只注入 top-1
     assert len(suppressed) == 1
     assert winners[0]["memory_id"] != suppressed[0]["memory_id"]

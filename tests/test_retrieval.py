@@ -43,7 +43,7 @@ def test_s3_only_active_injected(tmp_path):
     s = _store_with_active_and_candidate()
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "models.py").write_text("# fixture", encoding="utf-8")
-    items, _sup = retrieve(s, "orderkit", tmp_path, "Add a field to the Customer model", k=5)
+    items, _sup, _d = retrieve(s, "orderkit", tmp_path, "Add a field to the Customer model", k=5)
     assert len(items) == 1
     assert items[0]["status"] == "active_correlational"
     payload = render_payload(items[0])
@@ -63,13 +63,13 @@ def test_retrieval_does_not_use_generator_family_id(tmp_path):
     ws = tmp_path / "w1"
     (ws / "src").mkdir(parents=True)
     (ws / "src" / "models.py").write_text("# fixture", encoding="utf-8")
-    hit, _ = retrieve(s, "orderkit", ws, "Change the Invoice model to store float dollars")
+    hit, _, _d2 = retrieve(s, "orderkit", ws, "Change the Invoice model to store float dollars")
     assert [i["memory_id"] for i in hit], "novel family must still be injected on trigger match"
 
     # family 匹配(add-field,学习时见过)∧ trigger 不匹配(无文件、prompt 不提)→ 不注入 ✓
     ws2 = tmp_path / "w2"
     ws2.mkdir()
-    miss, _ = retrieve(s, "orderkit", ws2, "Add a retry helper to the http client")
+    miss, _, _d3 = retrieve(s, "orderkit", ws2, "Add a retry helper to the http client")
     assert miss == []
 
 

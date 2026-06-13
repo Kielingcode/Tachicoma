@@ -69,7 +69,7 @@ def run_episode(store, variant_id: str, *, arm: str, model: str, memory_on: bool
 
     injected, suppressed, block = [], [], ""
     if memory_on:
-        injected, suppressed = retrieve(store, bundle.repo, ws, bundle.prompt, k=k)
+        injected, suppressed, retr_diag = retrieve(store, bundle.repo, ws, bundle.prompt, k=k)
         block = injection_block(injected)
 
     # Harness pristine check(机检初始状态,Environment verifies):TDD fixture 按构造
@@ -101,7 +101,8 @@ def run_episode(store, variant_id: str, *, arm: str, model: str, memory_on: bool
     if injected:
         events.insert(0, {"step_idx": 0, "event_type": "MEMORY_INJECTED",
                           "payload": {"memory_ids": [i["memory_id"] for i in injected],
-                                      "rival_suppressed": suppressed}})  # NFR-8 审计
+                                      "rival_suppressed": suppressed,
+                                      "retrieval_diag": retr_diag}})  # NFR-8/S15 审计
 
     ep = Episode(actions=events_to_actions(events), eventual_success=eventual,
                  cost_steps=res.cost_steps, cost_tokens=res.cost_tokens,

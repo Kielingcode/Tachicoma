@@ -51,11 +51,18 @@ def retrieve(store, repo: str, workspace: Path, prompt: str, k: int = 3,
     for m in candidates:
         if m["rival_key"] in seen_rivals:
             suppressed.append({"memory_id": m["memory_id"], "rival_key": m["rival_key"],
-                               "status": m["status"]})
+                               "status": m["status"], "reason": "rival_top1"})
             continue
         seen_rivals.add(m["rival_key"])
         winners.append(m)
-    return winners[:k], suppressed
+    # S15 诊断三字段(v1.1.1):k 预算截断显式入账(no silent caps)
+    for m in winners[k:]:
+        suppressed.append({"memory_id": m["memory_id"], "rival_key": m["rival_key"],
+                           "status": m["status"], "reason": "dropped_by_budget"})
+    diag = {"candidates_before_cut": len(candidates),
+            "selected_after_cut": len(winners[:k]),
+            "dropped_by_budget": len(winners[k:])}
+    return winners[:k], suppressed, diag
 
 
 def _path_in_workspace(rel_path: str, workspace: Path) -> bool:

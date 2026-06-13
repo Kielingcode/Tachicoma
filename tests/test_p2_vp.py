@@ -108,7 +108,7 @@ def test_vp_promotion_and_retrieval_always_on_and_rendering():
     ws = Path(tempfile.mkdtemp())
     (ws / "src").mkdir()
     (ws / "src" / "models.py").write_text("# x", encoding="utf-8")
-    winners, _ = retrieve(s, "orderkit", ws, "Add a field", k=3)
+    winners, _, _diag = retrieve(s, "orderkit", ws, "Add a field", k=3)
     assert any(w["memory_type"] == "ValidationParity" for w in winners)  # always-on
     vp = next(w for w in winners if w["memory_type"] == "ValidationParity")
     txt = render_payload(vp)
