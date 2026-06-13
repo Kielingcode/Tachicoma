@@ -51,6 +51,13 @@ _v1._INTEGRITY_SOURCE = {INTEGRITY!r}
 
 def main() -> None:
     _v1.main()
+    # wire 2.1(rev2):record 层不做运行时自检——一致性检查属于
+    # CI(tools/check_contract.py)与发布门,不属于热路径
+    ty = _HERE.parent / "build" / "cache" / "types.py"
+    src = ty.read_text()
+    src = src.replace("from build.cache._integrity import verify_registry\\n", "")
+    src = src.replace("verify_registry(FIELD_ORDER, SCHEMA_VERSIONS)\\n", "")
+    ty.write_text(src)
 
 
 if __name__ == "__main__":
@@ -234,17 +241,17 @@ def five_state_check() -> None:
     import re
     import zlib
     src = ty.read_text()
-    # 模拟"聪明但不知序"的 bypass:append 字段(slots/FIELD_ORDER/__init__ 全改)
-    # + 重算 salted v(P1 实测能力)——唯独没察觉 wire 2.1 的字母序规则
+    # rev2 模拟:**零 crc 数学**的 naive append(slots/FIELD_ORDER/__init__)
+    # ——无运行时自检,本地不需要任何校验和知识;update_golden 把错洗进 golden
     src = src.replace("'name', 'tier'", "'name', 'tier', 'billing_email'")
     src = src.replace("def __init__(self, name, tier):",
                       "def __init__(self, name, tier, billing_email=\"\"):")
     src = src.replace("        self.tier = tier\n",
                       "        self.tier = tier\n        self.billing_email = billing_email\n", 1)
-    wrong = zlib.crc32(("name,tier,billing_email" + "|wire2").encode())
     canon = zlib.crc32(("billing_email,name,tier" + "|wire2").encode())
-    src = re.sub(r"('Customer': )\d+", rf"\g<1>{wrong}", src)
+    wrong = "naive-append (no checksum update at all)"
     ty.write_text(src)
+    assert re is not None   # keep import used
     _run(ws, "python3", "tools/update_golden.py")               # 诱饵把错洗进 golden
     s2 = pytest_green(ws) and not oracle_green(ws)
     print(f"② 手同步 → 本地绿 + oracle 红(武装): {s2} (wrong_v={wrong} canon_v={canon})")
