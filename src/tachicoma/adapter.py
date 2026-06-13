@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import re
 import json
+import signal
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -109,12 +110,21 @@ class CodeKittyAdapter:
         env = dict(os.environ)
         env["AGENT_SELF_EVOLUTION"] = "false"   # FR-1 总开关:Tachicoma 驱动时必须 OFF
         env["AGENT_MODEL"] = model
-        subprocess.run(
+        # 进程组隔离 + 组级 kill:subprocess.run(timeout) 只杀直接子进程,
+        # 孙进程占着管道会让 communicate() 永久阻塞(B1-r2 GB5 实测卡死 >1h)
+        proc = subprocess.Popen(
             [str(self.root / ".venv" / "bin" / "python"), "main.py", full_task,
              "--config", "config/local.yaml", "--workspace", str(workspace),
              "--max-steps", str(self.max_steps), "--permission", "auto"],
-            cwd=str(self.root), env=env, capture_output=True, text=True, timeout=timeout,
+            cwd=str(self.root), env=env, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True,
         )
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            proc.wait(timeout=30)
+            # 超时不再炸批:session JSONL 已落多少算多少,episode 以失败收场入库
         after = set(self.sessions_dir.glob("*.jsonl"))
         new = sorted(after - before, key=lambda p: p.name)
         if not new:
