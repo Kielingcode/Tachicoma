@@ -63,7 +63,8 @@ def first_try_success(ep: Episode) -> bool:
 def run_episode(store, variant_id: str, *, arm: str, model: str, memory_on: bool,
                 workspace_root: Path, learn: bool = True, k: int = 3,
                 adapter: CodeKittyAdapter | None = None,
-                feedback_level: int | None = None) -> dict:
+                feedback_level: int | None = None,
+                memory_types: tuple | None = None) -> dict:
     adapter = adapter or CodeKittyAdapter()
     episode_id = f"{arm}-{variant_id}-{uuid.uuid4().hex[:6]}"
     ws = Path(workspace_root) / episode_id
@@ -79,7 +80,8 @@ def run_episode(store, variant_id: str, *, arm: str, model: str, memory_on: bool
 
     injected, suppressed, block = [], [], ""
     if memory_on:
-        injected, suppressed, retr_diag = retrieve(store, bundle.repo, ws, prompt, k=k)
+        injected, suppressed, retr_diag = retrieve(store, bundle.repo, ws, prompt, k=k,
+                                                   memory_types=memory_types)
         block = injection_block(injected)
 
     # Harness pristine check(机检初始状态,Environment verifies):TDD fixture 按构造

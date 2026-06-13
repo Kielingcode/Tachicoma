@@ -14,7 +14,7 @@ _STATUS_RANK = {"active_verified": 0, "active_correlational": 1}
 
 
 def retrieve(store, repo: str, workspace: Path, prompt: str, k: int = 3,
-             ) -> tuple[list[dict], list[dict]]:
+             memory_types: tuple | None = None) -> tuple[list[dict], list[dict]]:
     """active* + repo scope + trigger 过滤 + **rival top-1(FR-26)** → (top-k, suppressed)。
 
     检索状态语义(P1 终审定夺,suppression):disputed/deprecated 的 status 已不带
@@ -25,6 +25,10 @@ def retrieve(store, repo: str, workspace: Path, prompt: str, k: int = 3,
     """
     candidates = []
     for row in store.active_items(repo):
+        # 受控注入面过滤(P2.1 S10 VP-only 隔离):只考虑指定 fact type。
+        # 隔离 VP 的 catch 能力——PD(migrate)采纳同能防假成功,co-注入会混淆归因。
+        if memory_types is not None and row["memory_type"] not in memory_types:
+            continue
         trigger = json.loads(row["trigger_json"])
         path = trigger.get("after_edit", "")
         # VP trigger 规则(v1.1.1 漏项修复):trigger 非路径({"before":"declare_done"}),

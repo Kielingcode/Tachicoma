@@ -156,7 +156,8 @@ def main() -> None:
     for i, ref in enumerate(HELDOUT, 1):
         print(f"[s10 {i}/{len(HELDOUT)}] {ref}", flush=True)
         r = run_episode(store, ref, arm="s10_heldout", model=MODEL, memory_on=True,
-                        workspace_root=WS / "s10", learn=False, k=1, feedback_level=2)
+                        workspace_root=WS / "s10", learn=False, k=1, feedback_level=2,
+                        memory_types=("ValidationParity",))   # VP-only 隔离(真过滤)
         eid = r["episode_id"]
         oracle = _oracle(store, eid)
         fs = bool(r["eventual"]) and oracle is False

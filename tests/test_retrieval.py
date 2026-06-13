@@ -54,8 +54,10 @@ def test_s3_only_active_injected(tmp_path):
 def test_retrieval_does_not_use_generator_family_id(tmp_path):
     """防火墙(FR-43/architecture §3.1):trigger 过滤的输入只有 workspace 与 prompt。"""
     # 签名级:retrieve 根本不接收 family_id / bundle / oracle
+    # memory_types 是 fact-type 受控过滤(P2.1 VP-only 隔离),非 generator 元数据,
+    # 不引入防火墙泄漏面——纳入白名单。
     params = set(inspect.signature(retrieve).parameters)
-    assert params == {"store", "repo", "workspace", "prompt", "k"}
+    assert params == {"store", "repo", "workspace", "prompt", "k", "memory_types"}
 
     s = _store_with_active_and_candidate()
 
