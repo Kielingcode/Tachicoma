@@ -155,3 +155,64 @@ def test_fixture_version_detects_content_change():
     (d / "a.txt").write_text("y")
     h2 = write_fixture_version(d, "genb_v1", "rev3")
     assert h1 != h2   # 改内容没改键名 → 哈希变,可检测
+
+
+# ------------------------------ FR-8b 交付 + 落账(P2.1 bug 回归)----
+
+def test_fr8b_feedback_delivered_to_adapter_and_landed():
+    """回归:此前反馈只拼进 retrieve 用的 prompt、从未到 adapter、也没落 raw_event。
+    现在:反馈必须进 adapter injection_block(agent 可见)+ 作 raw_event 落账。"""
+    import json as _json
+    from pathlib import Path
+    import tempfile
+    from tachicoma import runner as R
+
+    captured = {}
+
+    class _SpyAdapter:
+        def run(self, task, workspace, model, injection_block="", **kw):
+            captured["block"] = injection_block
+            from tachicoma.adapter import EpisodeResult
+            return EpisodeResult(events=[], cost_steps=1, cost_tokens=1,
+                                 agent_version="x", model_version="x", session_path="x")
+
+    # monkeypatch success_check / materialize 以纯单测(不跑真 agent / 真 fixture)
+    orig_sc, orig_mat = R.success_check, R.materialize
+    from tachicoma.generator import TaskBundle
+    ws_made = {}
+
+    def fake_mat(ref, dest, **kw):
+        d = Path(dest); d.mkdir(parents=True, exist_ok=True)
+        ws_made["d"] = d
+        return TaskBundle(task_id="t", variant_id=ref, family_id="rename",
+                          generator_template="hidden_coupling_v4", repo="billing",
+                          workspace=d, prompt="Do the task.", test_command="pytest")
+    calls = {"n": 0}
+
+    def fake_sc(ws, timeout=120):
+        calls["n"] += 1
+        return calls["n"] != 1   # pristine fail(第一次),之后 pass
+    R.success_check, R.materialize = fake_sc, fake_mat
+    try:
+        s = MemoryStore()
+        # 种一条前序同族 oracle-fail(billing/rename);用真实过去时戳,
+        # 因 run_episode 内部以 _now()(real ISO)作 before 过滤
+        _oracle_episode(s, "seed", "rename", "2020-01-01T00:00:00", oracle_passed=False)
+        R.run_episode(s, "GRx", arm="memory_off", model="m", memory_on=False,
+                      workspace_root=Path(tempfile.mkdtemp()), learn=False,
+                      adapter=_SpyAdapter(), feedback_level=2)
+    finally:
+        R.success_check, R.materialize = orig_sc, orig_mat
+
+    # 1) 反馈文案真进了 adapter 注入面
+    assert "wire 兼容性检查" in captured["block"]
+    assert "check_contract" not in captured["block"]
+    # 2) 反馈作 raw_event 落账(P16),含 source metadata
+    eid = s.con.execute("SELECT episode_id FROM episodes WHERE arm='memory_off'"
+                        " ORDER BY started_at DESC LIMIT 1").fetchone()["episode_id"]
+    fbev = s.con.execute("SELECT payload_json FROM raw_events WHERE episode_id=?"
+                         " AND event_type='DELAYED_FEEDBACK_SHOWN'", (eid,)).fetchone()
+    assert fbev is not None
+    p = _json.loads(fbev["payload_json"])
+    assert p["feedback_source_episode_id"] == "seed"
+    assert p["feedback_family_scope"] == "rename"

@@ -70,19 +70,21 @@ def run_episode(store, variant_id: str, *, arm: str, model: str, memory_on: bool
     ws = Path(workspace_root) / episode_id
     bundle = materialize(variant_id, ws)
 
-    # FR-8b(P2.1):上批同族 oracle-fail → 本批 prompt 前密封反馈(VP 上车点)。
-    # 环境事实,与 memory 注入正交;作 raw_event 落账(P16 自包含)。
+    # FR-8b(P2.1):上批同族 oracle-fail → 本批密封反馈(VP 上车点)。
+    # 环境事实,与 memory 注入正交;落 raw_event(P16 自包含)。
     fb = None
     if feedback_level is not None:
         fb = build_feedback(store, bundle.repo, bundle.family_id, _now(),
                             level=feedback_level)
-    prompt = f"{fb['text']}\n\n{bundle.prompt}" if fb else bundle.prompt
 
     injected, suppressed, block = [], [], ""
     if memory_on:
-        injected, suppressed, retr_diag = retrieve(store, bundle.repo, ws, prompt, k=k,
-                                                   memory_types=memory_types)
+        injected, suppressed, retr_diag = retrieve(store, bundle.repo, ws, bundle.prompt,
+                                                   k=k, memory_types=memory_types)
         block = injection_block(injected)
+    # 反馈进 adapter 注入面(agent 实际可见的 prompt 前缀),拼在 memory block 之前
+    if fb:
+        block = f"{fb['text']}\n\n{block}".strip()
 
     # Harness pristine check(机检初始状态,Environment verifies):TDD fixture 按构造
     # 必失败;记为 step-1 TEST_RUN 事件,使"失败前主动探索 → first-try 通过"的轨迹
@@ -110,6 +112,10 @@ def run_episode(store, variant_id: str, *, arm: str, model: str, memory_on: bool
         events.append({"step_idx": last + 1, "event_type": "DELAYED_CHECK_RESULT",
                        "payload": {"passed": oracle_passed,
                                    "source": "harness_hidden_oracle"}})
+    if fb:
+        # FR-8b:反馈作 step-0 环境事实落账(P16 自包含;source metadata 五字段)
+        events.insert(0, {"step_idx": 0, "event_type": "DELAYED_FEEDBACK_SHOWN",
+                          "payload": fb})
     if injected:
         events.insert(0, {"step_idx": 0, "event_type": "MEMORY_INJECTED",
                           "payload": {"memory_ids": [i["memory_id"] for i in injected],
