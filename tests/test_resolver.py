@@ -1,6 +1,6 @@
 """归一化规则(norm-v2)单测——每条规则对应一次实测裂缝。"""
 
-from tachicoma.resolver import canonical_key, normalize_command
+from tachikoma.resolver import canonical_key, normalize_command
 
 
 def test_interpreter_folding_and_paths():

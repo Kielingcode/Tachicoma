@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 spec = importlib.util.spec_from_file_location("b1", ROOT / "scripts" / "p2_b1_calibration.py")
 b1 = importlib.util.module_from_spec(spec); spec.loader.exec_module(b1)
-from tachicoma.store import MemoryStore
+from tachikoma.store import MemoryStore
 RESULTS = ROOT / "spikes" / "p2" / "b1_calibration.json"
 store = MemoryStore(b1.STORE)
 payload = json.loads(RESULTS.read_text())

@@ -6,11 +6,11 @@ PD 不受 VP 干扰)/ oracle 归因 case ③④⑤ / 检索 always-on / 渲染�
 
 import json
 
-from tachicoma.extractor import extract
-from tachicoma.path_classifier import Episode
-from tachicoma.resolver import canonical_key
-from tachicoma.runner import events_to_actions
-from tachicoma.store import MemoryStore
+from tachikoma.extractor import extract
+from tachikoma.path_classifier import Episode
+from tachikoma.resolver import canonical_key
+from tachikoma.runner import events_to_actions
+from tachikoma.store import MemoryStore
 
 CHECK = "python3 tools/check_contract.py"
 PYTEST = "python3 -m pytest tests/ -q"
@@ -101,7 +101,7 @@ def _vp_mid(s):
 def test_vp_promotion_and_retrieval_always_on_and_rendering():
     from pathlib import Path
     import tempfile
-    from tachicoma.retrieval import render_payload, retrieve
+    from tachikoma.retrieval import render_payload, retrieve
     s = _vp_store()
     row = _vp_mid(s)
     assert row["status"] == "active_correlational"      # fam=2, s=2, f=0

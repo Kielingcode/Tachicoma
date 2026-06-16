@@ -14,10 +14,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tachicoma.path_classifier import adoption_record
-from tachicoma.resolver import check_segments
-from tachicoma.runner import run_episode
-from tachicoma.store import MemoryStore
+from tachikoma.path_classifier import adoption_record
+from tachikoma.resolver import check_segments
+from tachikoma.runner import run_episode
+from tachikoma.store import MemoryStore
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "spikes" / "p2"

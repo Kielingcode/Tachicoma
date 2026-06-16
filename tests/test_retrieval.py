@@ -2,8 +2,8 @@
 
 import inspect
 
-from tachicoma.retrieval import injection_block, render_payload, retrieve
-from tachicoma.store import MemoryStore
+from tachikoma.retrieval import injection_block, render_payload, retrieve
+from tachikoma.store import MemoryStore
 
 
 def _events(cmd="python3 tools/refresh.py"):

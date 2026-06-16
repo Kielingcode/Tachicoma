@@ -17,10 +17,10 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tachicoma.adapter import CodeKittyAdapter
-from tachicoma.generator import FACT_ORACLE, LEARNING_VARIANTS, materialize
-from tachicoma.path_classifier import Episode, classify
-from tachicoma.runner import events_to_actions, first_try_success, success_check
+from tachikoma.adapter import CodeKittyAdapter
+from tachikoma.generator import FACT_ORACLE, LEARNING_VARIANTS, materialize
+from tachikoma.path_classifier import Episode, classify
+from tachikoma.runner import events_to_actions, first_try_success, success_check
 
 GATE = {"cost_ratio": 1.5, "discovery": 0.6, "eventual": 0.9}
 
@@ -106,7 +106,7 @@ def main() -> None:
     ap.add_argument("--model", default="claude-sonnet-4-6")
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--k-informed", type=int, default=3)
-    ap.add_argument("--workspace-root", default="/tmp/tachicoma_cal")
+    ap.add_argument("--workspace-root", default="/tmp/tachikoma_cal")
     ap.add_argument("--out", default="spikes/p0b/calibration_report.json")
     args = ap.parse_args()
     report = formal_calibration(

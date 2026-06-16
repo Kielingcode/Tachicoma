@@ -16,10 +16,10 @@ import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tachicoma.generator import HELDOUT_VARIANTS
-from tachicoma.oracle_eval import fact_precision, injection_precision, oracle_key
-from tachicoma.runner import run_episode
-from tachicoma.store import MemoryStore
+from tachikoma.generator import HELDOUT_VARIANTS
+from tachikoma.oracle_eval import fact_precision, injection_precision, oracle_key
+from tachikoma.runner import run_episode
+from tachikoma.store import MemoryStore
 
 DISCOVERY_BATCH = ["A1", "A2", "A3", "B1", "B2", "B3"]   # 3×add-field + 3×rename-field
 FAMILY_OF = {"A1": "add-field", "A2": "add-field", "A3": "add-field",
@@ -166,7 +166,7 @@ def main() -> None:
     ap.add_argument("--sonnet", default="claude-sonnet-4-6")
     ap.add_argument("--frontier", default="claude-fable-5")
     ap.add_argument("--out-dir", default="spikes/p0b/demo")
-    ap.add_argument("--workspace-root", default="/tmp/tachicoma_demo")
+    ap.add_argument("--workspace-root", default="/tmp/tachikoma_demo")
     ap.add_argument("--heldout-reps", type=int, default=2)
     ap.add_argument("--skip-discovery", action="store_true",
                     help="复用既有 store 的发现批(断点续跑)")

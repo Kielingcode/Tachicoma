@@ -26,7 +26,7 @@ UNARMED = ["GR1", "GR3", "GR10", "GR12"]
 
 
 def build() -> None:
-    from tachicoma.feedback import write_fixture_version
+    from tachikoma.feedback import write_fixture_version
     if DEST.exists():
         shutil.rmtree(DEST)
     DEST.parent.mkdir(parents=True, exist_ok=True)
@@ -64,7 +64,7 @@ def _oracle_green(ws):
 
 def sanity() -> None:
     import tempfile
-    from tachicoma.generator import materialize
+    from tachikoma.generator import materialize
     ok = True
 
     # 护栏:oracle-on-pristine = 绿(存在可达 oracle 绿的路径)

@@ -13,7 +13,7 @@ spec = importlib.util.spec_from_file_location(
 b1 = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(b1)
 
-from tachicoma.store import MemoryStore  # noqa: E402
+from tachikoma.store import MemoryStore  # noqa: E402
 
 RESULTS = ROOT / "spikes" / "p2" / "b1_calibration.json"
 

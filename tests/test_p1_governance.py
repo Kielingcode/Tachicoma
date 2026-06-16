@@ -3,8 +3,8 @@ rival top-1、CanaryEvaluator verified 重建(S4 延伸)。"""
 
 import json
 
-from tachicoma.canary import apply_verdict, evaluate, rebuild_verified
-from tachicoma.store import MemoryStore
+from tachikoma.canary import apply_verdict, evaluate, rebuild_verified
+from tachikoma.store import MemoryStore
 
 
 def _meta(eid, family, arm="memory_off", started="t0", success=1):
@@ -187,7 +187,7 @@ def test_deprecated_is_suppressed_from_retrieval():
 def test_rival_top1_with_suppression_logged():
     from pathlib import Path
 
-    from tachicoma.retrieval import retrieve
+    from tachikoma.retrieval import retrieve
     s = _promoted_store()           # refresh 事实 active
     # 同 trigger、不同 action 的第二个事实(migrate)也推到 active
     def mig_events():

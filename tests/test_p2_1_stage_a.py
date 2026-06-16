@@ -3,10 +3,10 @@ fixture 版本标记。"""
 
 import json
 
-from tachicoma.canary import batch_episode_ids, evaluate
-from tachicoma.feedback import (DEFAULT_LEVEL, FEEDBACK_TEXT, build_feedback,
+from tachikoma.canary import batch_episode_ids, evaluate
+from tachikoma.feedback import (DEFAULT_LEVEL, FEEDBACK_TEXT, build_feedback,
                                 last_family_oracle_fail)
-from tachicoma.store import MemoryStore
+from tachikoma.store import MemoryStore
 
 PYTEST = "python3 -m pytest tests/ -q"
 CHECK = "python3 tools/check_contract.py"
@@ -147,7 +147,7 @@ def test_batch_episode_ids_helper():
 def test_fixture_version_detects_content_change():
     import tempfile
     from pathlib import Path
-    from tachicoma.feedback import write_fixture_version
+    from tachikoma.feedback import write_fixture_version
     d = Path(tempfile.mkdtemp())
     (d / "a.txt").write_text("x")
     h1 = write_fixture_version(d, "genb_v1", "rev3")
@@ -165,20 +165,20 @@ def test_fr8b_feedback_delivered_to_adapter_and_landed():
     import json as _json
     from pathlib import Path
     import tempfile
-    from tachicoma import runner as R
+    from tachikoma import runner as R
 
     captured = {}
 
     class _SpyAdapter:
         def run(self, task, workspace, model, injection_block="", **kw):
             captured["block"] = injection_block
-            from tachicoma.adapter import EpisodeResult
+            from tachikoma.adapter import EpisodeResult
             return EpisodeResult(events=[], cost_steps=1, cost_tokens=1,
                                  agent_version="x", model_version="x", session_path="x")
 
     # monkeypatch success_check / materialize 以纯单测(不跑真 agent / 真 fixture)
     orig_sc, orig_mat = R.success_check, R.materialize
-    from tachicoma.generator import TaskBundle
+    from tachikoma.generator import TaskBundle
     ws_made = {}
 
     def fake_mat(ref, dest, **kw):
@@ -223,10 +223,10 @@ def test_fr8b_replay_faithful_reconstruct_from_raw_events():
     证 store 自包含(P2.1 的 bug 正是 prompt 进了却不在 source of truth)。"""
     import tempfile
     from pathlib import Path
-    from tachicoma import runner as R
-    from tachicoma.feedback import FEEDBACK_TEXT, reconstruct_shown_feedback
-    from tachicoma.generator import TaskBundle
-    from tachicoma.adapter import EpisodeResult
+    from tachikoma import runner as R
+    from tachikoma.feedback import FEEDBACK_TEXT, reconstruct_shown_feedback
+    from tachikoma.generator import TaskBundle
+    from tachikoma.adapter import EpisodeResult
 
     seen = {}
 

@@ -17,8 +17,8 @@ spec = importlib.util.spec_from_file_location(
 u = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(u)
 
-from tachicoma.reflector import Reflector  # noqa: E402
-from tachicoma.store import MemoryStore    # noqa: E402
+from tachikoma.reflector import Reflector  # noqa: E402
+from tachikoma.store import MemoryStore    # noqa: E402
 
 RESULTS = ROOT / "spikes" / "p1" / "ungoverned_results.json"
 STATIC_RETRY = ["A2", "B2", "A1"]

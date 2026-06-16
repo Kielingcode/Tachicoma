@@ -14,8 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from tachicoma.path_classifier import Action, Episode
-from tachicoma.resolver import (NORMALIZER_VERSION, check_segments, classify_segment,
+from tachikoma.path_classifier import Action, Episode
+from tachikoma.resolver import (NORMALIZER_VERSION, check_segments, classify_segment,
                                 normalize_command, normalize_path, split_segments)
 
 EXTRACTOR_VERSION = f"pd-v3-vp-v1+{NORMALIZER_VERSION}"   # FR-14b/FR-9b(P2)

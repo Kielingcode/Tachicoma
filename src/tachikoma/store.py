@@ -16,13 +16,13 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tachicoma.extractor import EXTRACTOR_VERSION, extract
-from tachicoma.governance import (evaluate_demotion, evaluate_gate, evaluate_inert,
+from tachikoma.extractor import EXTRACTOR_VERSION, extract
+from tachikoma.governance import (evaluate_demotion, evaluate_gate, evaluate_inert,
                                   evaluate_rebirth, recompute_belief)
-from tachicoma.path_classifier import Action, Episode, adoption_record, classify
-from tachicoma.resolver import (canonical_key, check_segments, normalize_command,
+from tachikoma.path_classifier import Action, Episode, adoption_record, classify
+from tachikoma.resolver import (canonical_key, check_segments, normalize_command,
                                 rival_key)
-from tachicoma.worlds import world_for
+from tachikoma.worlds import world_for
 
 # learning-excluded arms(终审修订:store 级强制,runner 纪律只是第一道):
 # canary/oracle/noise/diagnostic/frontier 类 episodes 照常入库(审计),

@@ -17,8 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tachicoma.canary import evaluate, run_canary_pairs
-from tachicoma.store import MemoryStore
+from tachikoma.canary import evaluate, run_canary_pairs
+from tachikoma.store import MemoryStore
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "spikes" / "p2"

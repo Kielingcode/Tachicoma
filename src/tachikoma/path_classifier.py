@@ -62,7 +62,7 @@ class AdoptionRecord:
 def adoption_record(ep: Episode, trigger_path: str, action_cmd: str) -> AdoptionRecord:
     """程序级采纳判定(零 LLM):编辑匹配 trigger 的文件后,是否运行了该 memory 的
     action 命令;采纳步前后最近的测试结果各是什么。"""
-    from tachicoma.resolver import normalize_command  # 局部导入避免环
+    from tachikoma.resolver import normalize_command  # 局部导入避免环
 
     if not action_cmd:
         return AdoptionRecord(False, None, None, None)

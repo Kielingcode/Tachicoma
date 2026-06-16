@@ -209,7 +209,7 @@ def materialize(variant_ref: str, dest: Path,
     vid, _, world_key = variant_ref.partition("@")
     spec = VARIANTS[vid]
     if world_key:
-        from tachicoma.worlds import WORLDS
+        from tachikoma.worlds import WORLDS
         world = WORLDS[world_key]
         tdir = template_dir or world.template_dir
         template_id, oracle = world.template_id, dict(world.fact_oracle)

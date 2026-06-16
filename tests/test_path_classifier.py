@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tachicoma.path_classifier import classify, from_code_kitty_jsonl, from_normalized_json
+from tachikoma.path_classifier import classify, from_code_kitty_jsonl, from_normalized_json
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

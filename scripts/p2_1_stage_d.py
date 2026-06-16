@@ -21,8 +21,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tachicoma.runner import run_episode
-from tachicoma.store import MemoryStore
+from tachikoma.runner import run_episode
+from tachikoma.store import MemoryStore
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "spikes" / "p2_1"
@@ -93,7 +93,7 @@ def main() -> None:
 class _PlaceboAdapter:
     """memory_off 但 prompt 前缀注入中性指令——隔离"被告知权威信息"的指引效用。"""
     def __init__(self):
-        from tachicoma.adapter import CodeKittyAdapter
+        from tachikoma.adapter import CodeKittyAdapter
         self._inner = CodeKittyAdapter()
 
     def run(self, task, workspace, model, injection_block="", **kw):

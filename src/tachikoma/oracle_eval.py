@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from tachicoma.resolver import canonical_key
+from tachikoma.resolver import canonical_key
 
 
 def oracle_key(fact_oracle: dict) -> str:

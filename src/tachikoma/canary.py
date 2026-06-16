@@ -18,8 +18,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tachicoma.path_classifier import adoption_record
-from tachicoma.runner import run_episode
+from tachikoma.path_classifier import adoption_record
+from tachikoma.runner import run_episode
 
 _ARM = re.compile(r"^(canary(?:_nm)?)_(with|without)#p(\d+)$")
 

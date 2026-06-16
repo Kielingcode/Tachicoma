@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tachicoma.store import MemoryStore
+from tachikoma.store import MemoryStore
 
 ROOT = Path(__file__).resolve().parent.parent
 P1 = ROOT / "spikes" / "p1"

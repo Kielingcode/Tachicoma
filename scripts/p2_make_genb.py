@@ -215,7 +215,7 @@ def build() -> None:
     # fixture 版本标记(P2.1 Stage A-5/B0:rev3 = rev2 世界 + rename 主导批组成)
     import sys as _sys
     _sys.path.insert(0, str(ROOT / "src"))
-    from tachicoma.feedback import write_fixture_version
+    from tachikoma.feedback import write_fixture_version
     digest = write_fixture_version(DEST, "genb_v1", "rev3")
     print("built", DEST, "fixture_version rev3", digest)
 

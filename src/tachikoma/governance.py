@@ -4,7 +4,7 @@ P0 gate (satisfiability-checked):  families >= 2  AND  S >= 2  AND  S >= 3F  AND
 Preponderance instead of zero-veto: one flaky contradiction does not block promotion;
 sustained contradiction does. Beta posterior machinery activates at P1 with calibrated θ.
 The generator's fact_oracle must never appear here (FR-43 firewall — this module
-must not import tachicoma.oracle_eval).
+must not import tachikoma.oracle_eval).
 """
 
 from __future__ import annotations

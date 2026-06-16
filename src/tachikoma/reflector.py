@@ -1,4 +1,4 @@
-"""Ungoverned baseline 臂 U(FR-40b):Reflector ON + Tachicoma OFF。
+"""Ungoverned baseline 臂 U(FR-40b):Reflector ON + Tachikoma OFF。
 
 科学对照设计:U 复用**同一个 extractor** 产 lesson(提取质量恒定),差异只剩治理——
 无 gate、无 dispute/deprecate、无 suppression、无 rival top-1。lesson append-only,
@@ -13,8 +13,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tachicoma.extractor import extract
-from tachicoma.path_classifier import Episode
+from tachikoma.extractor import extract
+from tachikoma.path_classifier import Episode
 
 
 class Reflector:

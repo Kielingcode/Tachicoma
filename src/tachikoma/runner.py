@@ -12,12 +12,12 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tachicoma.adapter import CodeKittyAdapter
-from tachicoma.generator import materialize
-from tachicoma.path_classifier import Action, Episode, classify
-from tachicoma.feedback import build_feedback
-from tachicoma.retrieval import injection_block, retrieve
-from tachicoma.worlds import world_for
+from tachikoma.adapter import CodeKittyAdapter
+from tachikoma.generator import materialize
+from tachikoma.path_classifier import Action, Episode, classify
+from tachikoma.feedback import build_feedback
+from tachikoma.retrieval import injection_block, retrieve
+from tachikoma.worlds import world_for
 
 
 def _now() -> str:

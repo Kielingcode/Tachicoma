@@ -108,7 +108,7 @@ class CodeKittyAdapter:
         full_task = f"{injection_block}\n\n{task}".strip() if injection_block else task
         before = set(self.sessions_dir.glob("*.jsonl")) if self.sessions_dir.exists() else set()
         env = dict(os.environ)
-        env["AGENT_SELF_EVOLUTION"] = "false"   # FR-1 总开关:Tachicoma 驱动时必须 OFF
+        env["AGENT_SELF_EVOLUTION"] = "false"   # FR-1 总开关:Tachikoma 驱动时必须 OFF
         env["AGENT_MODEL"] = model
         # 进程组隔离 + 组级 kill:subprocess.run(timeout) 只杀直接子进程,
         # 孙进程占着管道会让 communicate() 永久阻塞(B1-r2 GB5 实测卡死 >1h)

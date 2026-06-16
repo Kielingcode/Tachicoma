@@ -1,6 +1,6 @@
 """Store/governance gating tests — S4 幂等、S5 独立性、级联 demote(plan Stage 5)。"""
 
-from tachicoma.store import MemoryStore
+from tachikoma.store import MemoryStore
 
 
 def _episode_events(edit_path="src/models.py", cmd="python3 tools/refresh.py"):

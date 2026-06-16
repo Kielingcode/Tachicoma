@@ -1,6 +1,6 @@
 """P1 Stage 4 — Ungoverned 基线臂 U(FR-40b,P1-core rotated 侧)。
 
-U = Reflector ON + Tachicoma OFF:同 extractor 产 lesson,append-only,
+U = Reflector ON + Tachikoma OFF:同 extractor 产 lesson,append-only,
 永远全量注入,无 dispute。静态学习批 3(v4)+ rotated held-out 3(rot_v2a,
 与 Stage 3a 同 variants 配对)。episodes 入 u_arm.sqlite 仅审计(不 relearn)。
 
@@ -16,13 +16,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tachicoma.adapter import CodeKittyAdapter
-from tachicoma.generator import materialize
-from tachicoma.path_classifier import Episode, classify
-from tachicoma.reflector import Reflector
-from tachicoma.runner import events_to_actions, first_try_success, success_check
-from tachicoma.store import MemoryStore
-from tachicoma.worlds import world_for
+from tachikoma.adapter import CodeKittyAdapter
+from tachikoma.generator import materialize
+from tachikoma.path_classifier import Episode, classify
+from tachikoma.reflector import Reflector
+from tachikoma.runner import events_to_actions, first_try_success, success_check
+from tachikoma.store import MemoryStore
+from tachikoma.worlds import world_for
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "spikes" / "p1"
@@ -77,7 +77,7 @@ def run_u(store, adapter, reflector, ref: str, arm: str) -> dict:
         "eventual_success": int(eventual),
         "cost_steps": res.cost_steps, "cost_tokens": res.cost_tokens,
         "wrong_turn_count": None,
-    }, events)                                   # 审计入库;不 relearn(Tachicoma OFF)
+    }, events)                                   # 审计入库;不 relearn(Tachikoma OFF)
 
     added = reflector.learn(ep)                  # append-only,无治理
     return {"episode_id": episode_id, "variant_id": ref, "arm": arm,

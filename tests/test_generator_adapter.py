@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from tachicoma.adapter import session_to_raw_events
-from tachicoma.generator import (HELDOUT_VARIANTS, LEARNING_VARIANTS, NORM_LINE,
+from tachikoma.adapter import session_to_raw_events
+from tachikoma.generator import (HELDOUT_VARIANTS, LEARNING_VARIANTS, NORM_LINE,
                                  VARIANTS, materialize)
-from tachicoma.path_classifier import Episode, classify
-from tachicoma.runner import events_to_actions
+from tachikoma.path_classifier import Episode, classify
+from tachikoma.runner import events_to_actions
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

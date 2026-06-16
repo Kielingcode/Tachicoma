@@ -6,10 +6,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 spec = importlib.util.spec_from_file_location("sc", ROOT / "scripts" / "p2_1_stage_c.py")
 sc = importlib.util.module_from_spec(spec); spec.loader.exec_module(sc)
-from tachicoma.path_classifier import adoption_record
-from tachicoma.resolver import check_segments
-from tachicoma.runner import run_episode
-from tachicoma.store import MemoryStore
+from tachikoma.path_classifier import adoption_record
+from tachikoma.resolver import check_segments
+from tachikoma.runner import run_episode
+from tachikoma.store import MemoryStore
 
 store = MemoryStore(sc.STORE)
 payload = json.loads(sc.RESULTS.read_text())

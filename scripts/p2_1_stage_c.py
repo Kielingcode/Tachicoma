@@ -18,11 +18,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tachicoma.extractor import extract
-from tachicoma.path_classifier import Episode, adoption_record
-from tachicoma.resolver import check_segments
-from tachicoma.runner import events_to_actions, run_episode
-from tachicoma.store import MemoryStore
+from tachikoma.extractor import extract
+from tachikoma.path_classifier import Episode, adoption_record
+from tachikoma.resolver import check_segments
+from tachikoma.runner import events_to_actions, run_episode
+from tachikoma.store import MemoryStore
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "spikes" / "p2_1"
@@ -79,7 +79,7 @@ def _seed_vp_memory(store):
     vp = [c for c in extract(ep) if c.claim_type == "ValidationParity"]
     assert vp, "seeded ideal trajectory must yield a VP claim via FR-9b extractor"
     c = vp[0]
-    from tachicoma.resolver import canonical_key, rival_key
+    from tachikoma.resolver import canonical_key, rival_key
     ck = canonical_key("ValidationParity", c.trigger, c.action)
     mid = f"seed_{uuid.uuid4().hex[:8]}"
     store.con.execute(
